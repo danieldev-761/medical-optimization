@@ -14,6 +14,10 @@ build/
 out/
 output/
 *.tmp.csv
+
+# modelos locales de traducción (grandes)
+models/
+
 .idea/
 .vscode/
 *.log

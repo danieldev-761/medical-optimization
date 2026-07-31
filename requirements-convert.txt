@@ -1,0 +1,3 @@
+# Dependencias solo para convertir el modelo local (setup_ctranslate2_model.py).
+# El runtime (translate.py) solo necesita transformers + sentencepiece + ctranslate2.
+torch>=2.4

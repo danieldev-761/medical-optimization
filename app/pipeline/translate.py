@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +33,14 @@ class TranslationError(RuntimeError):
     pass
 
 
+def _ctranslate2_available(model_dir: str) -> bool:
+    """True si el modelo CTranslate2 local está presente y utilizable."""
+    if not _HAS_CTRANSLATE2:
+        return False
+    model_file = Path(model_dir) / "model.bin"
+    return model_file.is_file()
+
+
 def _translate_ctranslate2(texts: list[str], model_dir: str) -> list[str]:
     """Traducción local por lotes con ctranslate2 (modelo MarianMT convertido)."""
     if not _HAS_CTRANSLATE2:
@@ -44,12 +53,10 @@ def _translate_ctranslate2(texts: list[str], model_dir: str) -> list[str]:
 
     translator = ctranslate2.Translator(model_dir, device="cpu")
     results: list[str] = []
-    # ctranslate2 consume token IDs; traducimos en lotes conservando orden.
-    batch_ids = tokenizer(texts, return_tensors="pt", padding=True)["input_ids"]
-    encoded = [ids.tolist() for ids in batch_ids]
-    outputs = translator.translate_batch(encoded)
+    tokenized = [tokenizer.convert_ids_to_tokens(tokenizer.encode(t)) for t in texts]
+    outputs = translator.translate_batch(tokenized, beam_size=1, max_batch_size=max(len(texts), 1))
     for out, orig in zip(outputs, texts, strict=True):
-        text = tokenizer.decode(out.hypotheses[0], skip_special_tokens=True)
+        text = tokenizer.convert_tokens_to_string(out.hypotheses[0]).strip()
         results.append(text if text else orig)
     return results
 
@@ -74,6 +81,8 @@ class Translator:
     """Traductor con motor resoluble en runtime y fallback automático."""
 
     def __init__(self, engine: str, model_dir: str):
+        if engine == "auto":
+            engine = "ctranslate2" if _ctranslate2_available(model_dir) else "deep_translator"
         if engine == "ctranslate2" and not _HAS_CTRANSLATE2:
             log.warning("ctranslate2 requerido pero no instalado; se usa deep_translator")
             engine = "deep_translator"

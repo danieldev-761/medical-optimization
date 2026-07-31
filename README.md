@@ -17,14 +17,28 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+### Traducción local sin red (recomendado)
+
+El motor `ctranslate2` traduce en local (sin llamadas de red) y es ~3.6× más rápido
+que el fallback de Google. Para disponibilizarlo:
+
+```bash
+pip install -r requirements-convert.txt   # solo para la conversión (incluye torch CPU)
+python scripts/setup_ctranslate2_model.py
+```
+
+Descarga `Helsinki-NLP/opus-mt-es-en` (~300 MB una sola vez) y lo convierte a
+formato CTranslate2 en `models/opus-mt-es-en`. Con el modelo presente, el motor
+`auto` usa ctranslate2 automáticamente; sin él, degrada a `deep_translator`.
+
 ## Uso
 
 ### CLI (archivo único o carpeta)
 
 ```bash
-python run.py sample                    # modo optimizar_tokens=True (default)
+python run.py sample                    # modo optimizar_tokens=True, motor auto
 python run.py sample --no-optimize      # solo texto original en español
-python run.py ruta/archivo.xlsx --engine deep_translator
+python run.py ruta/archivo.xlsx --engine ctranslate2   # forzar traducción local
 ```
 
 Salidas en `out/`: `resultados.xlsx` (1 hoja), `agregados.json`, `metrics.json`, `intermediate.csv`.
