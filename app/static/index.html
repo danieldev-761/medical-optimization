@@ -9,17 +9,22 @@
 <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-<header class="topbar">
-  <div class="brand">
-    <span class="logo-dot"></span>
-    <div class="brand-text">
-      <h1>Medical Opt</h1>
-      <span class="tag">HU-015 · token economics</span>
-    </div>
+<header class="termbar">
+  <div class="term-prompt">
+    <span class="prompt-user">medical-opt</span>
+    <span class="prompt-sep">~$</span>
+    <span class="prompt-cmd" id="prompt-cmd">aguardando archivo</span>
+    <span class="cursor"></span>
   </div>
-  <div class="topbar-right">
-    <span id="engine-badge" class="badge" hidden>motor: —</span>
-    <a id="btn-download" class="btn primary" href="/api/download" hidden>⤓ excel</a>
+  <div class="statusline" id="statusline">
+    <span class="seg seg-accent">HU-015</span>
+    <span class="seg seg-idle" id="sl-engine">engine: idle</span>
+    <span class="seg" id="sl-rows">rows: —</span>
+    <span class="seg" id="sl-save">saving: —</span>
+    <span class="seg" id="sl-time">⏱ —</span>
+  </div>
+  <div class="term-actions">
+    <a id="btn-download" class="btn primary" href="/api/download" hidden>⤓ export.xlsx</a>
   </div>
 </header>
 

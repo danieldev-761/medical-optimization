@@ -123,17 +123,29 @@ function renderTimings(timings) {
 }
 
 function applyToUI(d) {
-  const engine = d._meta?.motor_traduccion;
-  const badge = document.getElementById("engine-badge");
-  badge.hidden = false;
-  badge.textContent = "motor: " + (engine || "—");
-  if (engine === "deep_translator") { badge.style.color = "var(--warn)"; }
-  else if (engine === "ctranslate2") { badge.style.color = "var(--accent)"; }
-  else { badge.style.color = "var(--muted)"; }
+  const meta = d._meta || {};
+  const engine = meta.motor_traduccion;
+
+  const prompt = document.getElementById("prompt-cmd");
+  prompt.textContent = "analyze --done";
+  prompt.className = "prompt-cmd ok";
+
+  setSeg("sl-engine", "engine: " + (engine || "—"),
+    engine === "ctranslate2" ? "seg-ok" : engine === "deep_translator" ? "seg-warn" : "");
+  setSeg("sl-rows", "rows: " + fmtInt(d.n_procesadas));
+
+  const hasIngles = (d.totales?.tokens_ingles ?? 0) > 0;
+  const savePct = hasIngles ? d.ahorro?.ingles_pct : d.ahorro?.limpio_pct;
+  setSeg("sl-save", "saving: " + fmtPct(savePct), "seg-ok");
+
+  const timings = meta.tiempos_seg;
+  if (timings) {
+    const total = Object.values(timings).reduce((s, v) => s + v, 0);
+    setSeg("sl-time", "⏱ " + total.toFixed(1) + "s");
+  }
 
   document.getElementById("btn-download").hidden = false;
 
-  const hasIngles = (d.totales?.tokens_ingles ?? 0) > 0;
   document.querySelector(".variant.ingles").style.opacity = hasIngles ? "1" : "0.45";
   renderReal(d);
   renderProyeccion(d);
@@ -144,6 +156,12 @@ function applyToUI(d) {
 /* --- charts helpers --- */
 function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
 function setWidth(id, val) { const el = document.getElementById(id); if (el) el.style.width = val + "%"; }
+function setSeg(id, text, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = "seg" + (cls ? " " + cls : "");
+}
 function clampPct(v, max) { return Math.max(0, Math.min(Number(v) || 0, max)); }
 
 function canvas(id, config) {
@@ -244,6 +262,8 @@ async function runPipeline(file) {
     const reader = res.body.getReader();
     const decoder = new TextDecoder("utf-8");
     let buffer = "";
+    const prompt = document.getElementById("prompt-cmd");
+    setSeg("sl-engine", "engine: running", "seg-warn");
 
     for (;;) {
       const { done, value } = await reader.read();
@@ -256,8 +276,11 @@ async function runPipeline(file) {
         for (const line of raw.split("\n")) {
           if (!line.startsWith("data: ")) continue;
           const evt = JSON.parse(line.slice(6));
-          if (evt.type === "stage") setProgress(evt.etapa.replace(/_/g, " "), evt.progreso);
-          else if (evt.type === "done") {
+          if (evt.type === "stage") {
+            setProgress(evt.etapa.replace(/_/g, " "), evt.progreso);
+            prompt.textContent = "analyze --stage " + evt.etapa + " " + Math.round(evt.progreso) + "%";
+            prompt.className = "prompt-cmd run";
+          } else if (evt.type === "done") {
             applyToUI(evt.data);
             statusEl.textContent = "✓ análisis listo · " + file.name;
             statusEl.className = "run-status ok";
@@ -269,6 +292,9 @@ async function runPipeline(file) {
   } catch (e) {
     statusEl.textContent = "✗ " + e.message;
     statusEl.className = "run-status err";
+    const prompt = document.getElementById("prompt-cmd");
+    prompt.textContent = "error: " + e.message;
+    prompt.className = "prompt-cmd err";
     progressWrap.hidden = true;
   } finally {
     busy = false;
