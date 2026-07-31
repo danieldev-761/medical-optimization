@@ -1,11 +1,14 @@
 """Capa de ingesta: archivo .xlsx único o carpeta, consolidación y conversión a CSV."""
 
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pandas as pd
 
 from ..config import Settings
+
+log = logging.getLogger(__name__)
 
 
 def _discover_inputs(input_path: Path) -> list[Path]:
@@ -23,7 +26,11 @@ def _discover_inputs(input_path: Path) -> list[Path]:
 
 def _load_sheet(path: Path) -> pd.DataFrame:
     """Carga una hoja .xlsx a DataFrame sin costo de celdas vacías residuales."""
-    return pd.read_excel(path, engine="openpyxl", dtype=str)
+    try:
+        return pd.read_excel(path, engine="calamine", dtype=str)
+    except Exception:  # noqa: BLE001
+        log.warning("calamine no disponible o falló en %s; usando openpyxl", path)
+        return pd.read_excel(path, engine="openpyxl", dtype=str)
 
 
 def read_excel_to_dataframes(files: list[Path], max_workers: int = 4) -> list[pd.DataFrame]:

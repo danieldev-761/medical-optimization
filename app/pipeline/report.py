@@ -1,11 +1,14 @@
 """Presentación: Excel final de una sola hoja y agregados para dashboard."""
 
+import logging
 from pathlib import Path
 
 import pandas as pd
 
 from ..config import OUTPUT_COLUMNS, PROJECTED_MESSAGES_PER_DAY
 from . import cost as cost_mod
+
+log = logging.getLogger(__name__)
 
 
 def build_output_frame(processed: pd.DataFrame) -> pd.DataFrame:
@@ -20,10 +23,17 @@ def build_output_frame(processed: pd.DataFrame) -> pd.DataFrame:
 
 
 def write_excel(frame: pd.DataFrame, path: str | Path) -> None:
-    """Escribe el Excel final con una sola hoja."""
+    """Escribe el Excel final con una sola hoja usando xlsxwriter (más rápido).
+
+    Si xlsxwriter no está disponible o falla, se degrada a openpyxl.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_excel(path, index=False, sheet_name="Resultados")
+    try:
+        frame.to_excel(path, index=False, sheet_name="Resultados", engine="xlsxwriter")
+    except Exception:  # noqa: BLE001
+        log.warning("xlsxwriter no disponible o falló en %s; usando openpyxl", path)
+        frame.to_excel(path, index=False, sheet_name="Resultados", engine="openpyxl")
 
 
 def compute_aggregates(processed: pd.DataFrame) -> dict:

@@ -1,5 +1,7 @@
 pandas>=2.2
 openpyxl>=3.1
+xlsxwriter>=3.2
+python-calamine>=0.2
 tiktoken>=0.9
 deep-translator>=1.11
 fastapi>=0.115

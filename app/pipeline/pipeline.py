@@ -2,6 +2,7 @@
 
 import json
 import logging
+import shutil
 from collections.abc import Callable
 import math
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -201,7 +202,9 @@ def run_pipeline(settings: Settings, progress: ProgressListener | None = None) -
             "tiempos_seg": metrics.to_dict(),
         }
         report.write_excel(output, settings.output_excel)
-        report.write_excel(output, Path(settings.output_excel).parent / "resultados.xlsx")
+        default_excel = Path(settings.output_excel).parent / "resultados.xlsx"
+        if default_excel.resolve() != Path(settings.output_excel).resolve():
+            shutil.copy2(settings.output_excel, default_excel)
         _write_json(settings.output_json, aggregates)
     reporter.end("reporte")
     reporter.done()
