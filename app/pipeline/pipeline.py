@@ -201,6 +201,7 @@ def run_pipeline(settings: Settings, progress: ProgressListener | None = None) -
             "tiempos_seg": metrics.to_dict(),
         }
         report.write_excel(output, settings.output_excel)
+        report.write_excel(output, Path(settings.output_excel).parent / "resultados.xlsx")
         _write_json(settings.output_json, aggregates)
     reporter.end("reporte")
     reporter.done()
