@@ -132,7 +132,13 @@ def run_pipeline(settings: Settings) -> PipelineResult:
         output = report.build_output_frame(valid)
         aggregates = report.compute_aggregates(valid)
         aggregates["preprocesamiento"] = preprocess_stats
-        aggregates["motores"] = {"traduccion": translate_engine}
+        aggregates["_meta"] = {
+            "motor_traduccion": translate_engine,
+            "optimizar_tokens": settings.optimize_tokens,
+            "tarifa_usd_por_millon": 2.50,
+            "mensajes_por_dia_proyeccion": 15_000,
+            "tiempos_seg": metrics.to_dict(),
+        }
         report.write_excel(output, settings.output_excel)
         _write_json(settings.output_json, aggregates)
 

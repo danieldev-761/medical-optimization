@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Medical Opt · HU-015</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo-dot"></span>
+    <div class="brand-text">
+      <h1>Medical Opt</h1>
+      <span class="tag">HU-015 · token economics</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span id="engine-badge" class="badge">motor: —</span>
+    <button id="btn-reload" class="btn ghost" title="Recargar resultados">↻ reload</button>
+    <a id="btn-download" class="btn primary" href="/api/download" title="Descargar Excel final">⤓ excel</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <nav class="tabs" role="tablist">
+    <button class="tab is-active" data-view="real">Análisis real</button>
+    <button class="tab" data-view="hipotetico">Proyección hipotética</button>
+  </nav>
+
+  <section id="view-real" class="view is-active">
+    <div class="kpi-grid four">
+      <article class="card kpi"><span class="kpi-label">filas leídas</span><span id="k-filas" class="kpi-value">—</span></article>
+      <article class="card kpi"><span class="kpi-label">filas válidas</span><span id="k-validas" class="kpi-value">—</span></article>
+      <article class="card kpi"><span class="kpi-label">descartadas</span><span id="k-descartadas" class="kpi-value">—</span></article>
+      <article class="card kpi"><span class="kpi-label">duplicados</span><span id="k-dup" class="kpi-value">—</span></article>
+    </div>
+
+    <div class="kpi-grid three">
+      <article class="card variant original">
+        <div class="variant-head"><span class="dot"></span>Original · es</div>
+        <div class="variant-big" id="v-original-tokens">—</div>
+        <div class="variant-sub">tokens</div>
+        <div class="variant-row"><span>costo</span><b id="v-original-costo">—</b></div>
+        <div class="variant-row"><span>tokens/msg</span><b id="v-original-avg">—</b></div>
+      </article>
+      <article class="card variant limpio">
+        <div class="variant-head"><span class="dot"></span>Limpio · es</div>
+        <div class="variant-big" id="v-limpio-tokens">—</div>
+        <div class="variant-sub">tokens</div>
+        <div class="variant-row"><span>costo</span><b id="v-limpio-costo">—</b></div>
+        <div class="variant-row"><span>tokens/msg</span><b id="v-limpio-avg">—</b></div>
+      </article>
+      <article class="card variant ingles">
+        <div class="variant-head"><span class="dot"></span>Inglés · en</div>
+        <div class="variant-big" id="v-ingles-tokens">—</div>
+        <div class="variant-sub">tokens</div>
+        <div class="variant-row"><span>costo</span><b id="v-ingles-costo">—</b></div>
+        <div class="variant-row"><span>tokens/msg</span><b id="v-ingles-avg">—</b></div>
+      </article>
+    </div>
+
+    <div class="savings card">
+      <div class="savings-grid">
+        <div>
+          <span class="kpi-label">ahorro limpio</span>
+          <div class="saving-line"><b id="s-limpio">—</b><span id="s-limpio-pct" class="pct"></span></div>
+          <div class="bar"><div id="s-limpio-bar" class="bar-fill"></div></div>
+        </div>
+        <div>
+          <span class="kpi-label">ahorro inglés</span>
+          <div class="saving-line"><b id="s-ingles">—</b><span id="s-ingles-pct" class="pct"></span></div>
+          <div class="bar"><div id="s-ingles-bar" class="bar-fill accent2"></div></div>
+        </div>
+        <div class="rate-note">
+          <span class="kpi-label">tarifa de referencia</span>
+          <div class="saving-line"><b>$2.50</b><span class="pct">/ 1M tokens</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <article class="card chart-card"><h2>Tokens por variante</h2><canvas id="ch-tokens"></canvas></article>
+      <article class="card chart-card"><h2>Costo por variante (USD)</h2><canvas id="ch-cost"></canvas></article>
+      <article class="card chart-card"><h2>Ahorro vs. original</h2><canvas id="ch-savings"></canvas></article>
+      <article class="card chart-card"><h2>Distribución de acciones</h2><canvas id="ch-acciones"></canvas></article>
+    </div>
+
+    <article class="card">
+      <h2>Etapas · profiling (s)</h2>
+      <div id="timings" class="timings"></div>
+    </article>
+  </section>
+
+  <section id="view-hipotetico" class="view">
+    <div class="note card">
+      Proyección sobre <b>15,000 mensajes/día</b> usando el promedio real de tokens por mensaje de cada variante, a tarifa <b>$2.50 / 1M</b> tokens.
+    </div>
+    <div class="kpi-grid four" id="proj-cards"></div>
+    <div class="grid-2">
+      <article class="card chart-card"><h2>Proyección de costo por periodo</h2><canvas id="ch-proj"></canvas></article>
+      <article class="card chart-card"><h2>Proyección de tokens por periodo</h2><canvas id="ch-proj-tokens"></canvas></article>
+    </div>
+  </section>
+
+  <section class="upload card">
+    <h2>Procesar archivo</h2>
+    <p class="muted">Sube un <code>.xlsx</code> para ejecutar la pipeline en vivo. Para carpetas usa el CLI: <code>python run.py &lt;carpeta&gt;</code>.</p>
+    <div id="dropzone" class="dropzone">
+      <div class="dz-icon">⤒</div>
+      <p><b>Arrastra tu archivo</b> o haz clic para elegir</p>
+      <input id="file-input" type="file" accept=".xlsx" hidden />
+    </div>
+    <div class="opts">
+      <label class="switch">
+        <input id="opt-tokens" type="checkbox" checked />
+        <span class="track"></span>
+        <span>optimizar_tokens</span>
+      </label>
+      <label class="select-label">motor
+        <select id="opt-engine">
+          <option value="auto" selected>auto</option>
+          <option value="deep_translator">deep_translator</option>
+          <option value="ctranslate2">ctranslate2</option>
+        </select>
+      </label>
+      <button id="btn-run" class="btn primary" disabled>▶ Ejecutar pipeline</button>
+      <span id="run-status" class="run-status"></span>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">Medical Opt · pipeline por etapas · CSV intermedio · concurrencia I/O · caché por texto</footer>
+
+<script src="/static/app.js" defer></script>
+</body>
+</html>
