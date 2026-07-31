@@ -4,6 +4,7 @@ FROM python:3.11-slim
 # Evita que Python escriba archivos .pyc en disco y habilita unbuffered logs
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 WORKDIR /app
 
