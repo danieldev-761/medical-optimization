@@ -75,6 +75,7 @@ def analyze(
     aggregates = result.aggregates
     aggregates["_meta"]["archivo"] = file.filename
     aggregates["_meta"]["ejecutado_via"] = "api"
+    aggregates["_meta"]["run_id"] = run_id
     return JSONResponse(aggregates)
 
 
@@ -121,6 +122,7 @@ def analyze_stream(
             agg = result.aggregates
             agg["_meta"]["archivo"] = file.filename
             agg["_meta"]["ejecutado_via"] = "api"
+            agg["_meta"]["run_id"] = run_id
             events.put({"type": "done", "data": agg})
         except Exception as exc:  # noqa: BLE001
             events.put({"type": "error", "detail": str(exc)})
@@ -141,8 +143,11 @@ def analyze_stream(
 
 
 @app.get("/api/download")
-def download_excel() -> FileResponse:
-    path = OUT_DIR / "resultados.xlsx"
+def download_excel(run_id: str | None = Query(None)) -> FileResponse:
+    if run_id:
+        path = OUT_DIR / f"resultados_{run_id}.xlsx"
+    else:
+        path = OUT_DIR / "resultados.xlsx"
     if not path.exists():
         raise HTTPException(404, "Aún no hay Excel generado.")
     return FileResponse(str(path), filename="resultados.xlsx", media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

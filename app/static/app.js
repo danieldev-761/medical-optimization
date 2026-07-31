@@ -149,7 +149,9 @@ function applyToUI(d) {
     setSeg("sl-time", "⏱ duró " + timeStr);
   }
 
-  document.getElementById("btn-download").hidden = false;
+  const btnDl = document.getElementById("btn-download");
+  btnDl.hidden = false;
+  btnDl.href = meta.run_id ? "/api/download?run_id=" + meta.run_id : "/api/download";
 
   document.querySelector(".variant.ingles").style.opacity = hasIngles ? "1" : "0.45";
   renderReal(d);
