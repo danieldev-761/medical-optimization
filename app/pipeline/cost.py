@@ -3,11 +3,21 @@
 costo_estimado = (tokens / 1_000_000) * 2.50
 """
 
+import math
+
 from ..config import PROJECTED_MESSAGES_PER_DAY, PROJECTION_PERIODS, RATE_USD_PER_MILLION
 
 
-def cost_for(tokens: int, rate: float = RATE_USD_PER_MILLION) -> float:
-    return round((tokens / 1_000_000) * rate, 6)
+def cost_for(tokens, rate: float = RATE_USD_PER_MILLION) -> float:
+    if tokens is None:
+        return float("nan")
+    try:
+        value = float(tokens)
+    except (TypeError, ValueError):
+        return float("nan")
+    if math.isnan(value):
+        return float("nan")
+    return round((value / 1_000_000) * rate, 6)
 
 
 def project_cost(avg_tokens_per_message: float, period_days: int, messages_per_day: int = PROJECTED_MESSAGES_PER_DAY) -> dict:

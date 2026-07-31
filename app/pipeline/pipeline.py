@@ -120,7 +120,7 @@ def run_pipeline(settings: Settings) -> PipelineResult:
         with stage_timer(metrics, "tokens_ingles"):
             valid = _count_tokens_column(valid, "mensaje_ingles", settings.batch_size)
     else:
-        valid["tokens_ingles"] = 0
+        valid["tokens_ingles"] = pd.NA
         valid["mensaje_ingles"] = ""
 
     with stage_timer(metrics, "costeo"):
