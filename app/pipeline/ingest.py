@@ -1,6 +1,5 @@
 """Capa de ingesta: archivo .xlsx único o carpeta, consolidación y conversión a CSV."""
 
-import csv
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -50,13 +49,3 @@ def ingest(settings: Settings) -> pd.DataFrame:
     files = _discover_inputs(settings.input_path_obj)
     frames = read_excel_to_dataframes(files, max_workers=settings.max_workers_ingest)
     return consolidate(frames, files)
-
-
-def to_csv_intermediate(frame: pd.DataFrame, csv_path: Path) -> None:
-    """Convierte el consolidado a CSV como formato intermedio persistente."""
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_csv(csv_path, index=False, encoding="utf-8", quoting=csv.QUOTE_MINIMAL)
-
-
-def from_csv_intermediate(csv_path: Path) -> pd.DataFrame:
-    return pd.read_csv(csv_path, dtype=str, keep_default_na=False, na_values=[])

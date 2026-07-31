@@ -138,11 +138,6 @@ def run_pipeline(settings: Settings, progress: ProgressListener | None = None) -
             raise ValueError("No hay filas procesables tras la validación")
     reporter.end("validacion")
 
-    reporter.stage("csv_intermedio")
-    with stage_timer(metrics, "csv_intermedio"):
-        ingest.to_csv_intermediate(raw, Path(settings.output_csv))
-    reporter.end("csv_intermedio")
-
     reporter.stage("preprocesamiento")
     with stage_timer(metrics, "preprocesamiento"):
         valid, preprocess_stats = preprocess.preprocess(raw, max_workers=settings.max_workers_cpu)
