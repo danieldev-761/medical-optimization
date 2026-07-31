@@ -18,6 +18,10 @@ OPTIONAL_COLUMNS = [
 # Contrato de salida Excel (orden exacto)
 OUTPUT_COLUMNS = [
     "paciente_id",
+    "paciente",
+    "mensaje_texto",
+    "mensaje_limpio",
+    "mensaje_ingles",
     "accion",
     "especialidad",
     "fecha_solicitada",

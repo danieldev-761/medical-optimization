@@ -8,6 +8,7 @@ from ..config import REQUIRED_COLUMNS
 COLUMN_ALIASES = {
     "id_paciente": "paciente_id",
     "mensaje": "mensaje_texto",
+    "especialidad_medica": "especialidad",
 }
 
 

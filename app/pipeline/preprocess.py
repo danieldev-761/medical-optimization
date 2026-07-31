@@ -72,11 +72,12 @@ def _has_semantic_value(message: str) -> bool:
 
 
 def deduplicate(frame: pd.DataFrame) -> pd.DataFrame:
-    """Dedup por mensaje normalizado: conserva la primera ocurrencia por texto limpio."""
+    """Dedup por (paciente_id, mensaje normalizado): conserva la primera ocurrencia de cada paciente por texto limpio."""
     frame = frame.copy()
     frame["_clean_key"] = frame["mensaje_texto"].fillna("").astype(str).map(clean_message)
     frame["_clean_key"] = frame["_clean_key"].map(normalize_ascii).str.lower()
-    frame = frame.drop_duplicates(subset="_clean_key", keep="first")
+    subset = ["paciente_id", "_clean_key"] if "paciente_id" in frame.columns else ["_clean_key"]
+    frame = frame.drop_duplicates(subset=subset, keep="first")
     return frame.drop(columns=["_clean_key"])
 
 
