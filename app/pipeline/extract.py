@@ -50,6 +50,11 @@ ACCION_PATTERNS: list[tuple[str, list[str]]] = [
     ),
 ]
 
+ACCION_COMPILED: list[tuple[str, list[re.Pattern]]] = [
+    (accion, [re.compile(pat, re.IGNORECASE) for pat in pats])
+    for accion, pats in ACCION_PATTERNS
+]
+
 CONFIRM_NEGATIONS = re.compile(r"\bno quiero confirmar\b|\bdesconfirmar\b", re.IGNORECASE)
 
 
@@ -57,9 +62,9 @@ def extract_accion(text: str) -> str:
     t = normalize_ascii(text).lower()
     if CONFIRM_NEGATIONS.search(t):
         return ""
-    for accion, patterns in ACCION_PATTERNS:
+    for accion, patterns in ACCION_COMPILED:
         for pat in patterns:
-            if re.search(pat, t):
+            if pat.search(t):
                 return accion
     return ""
 
@@ -93,12 +98,17 @@ ESPECIALIDADES: dict[str, list[str]] = {
     "vacunacion": [r"\bvacun(a|acion|as)\b", r"\bvacuna\b"],
 }
 
+ESPECIALIDADES_COMPILED: dict[str, list[re.Pattern]] = {
+    esp: [re.compile(pat, re.IGNORECASE) for pat in pats]
+    for esp, pats in ESPECIALIDADES.items()
+}
+
 
 def extract_especialidad(text: str) -> str:
     t = normalize_ascii(text).lower()
-    for especialidad, patterns in ESPECIALIDADES.items():
+    for especialidad, patterns in ESPECIALIDADES_COMPILED.items():
         for pat in patterns:
-            if re.search(pat, t):
+            if pat.search(t):
                 return especialidad
     return ""
 
@@ -122,11 +132,13 @@ FECHA_PATTERNS = [
     r"\bmanana\b",
 ]
 
+FECHA_COMPILED = [re.compile(pat, re.IGNORECASE) for pat in FECHA_PATTERNS]
+
 
 def extract_fecha_solicitada(text: str) -> str:
     t = normalize_ascii(text).lower()
-    for pat in FECHA_PATTERNS:
-        m = re.search(pat, t)
+    for pat in FECHA_COMPILED:
+        m = pat.search(t)
         if m:
             return m.group(0).strip()
     return ""
@@ -152,11 +164,13 @@ HORARIO_PATTERNS = [
     r"\bpor la mananita\b",
 ]
 
+HORARIO_COMPILED = [re.compile(pat, re.IGNORECASE) for pat in HORARIO_PATTERNS]
+
 
 def extract_preferencia_horario(text: str) -> str:
     t = normalize_ascii(text).lower()
-    for pat in HORARIO_PATTERNS:
-        m = re.search(pat, t)
+    for pat in HORARIO_COMPILED:
+        m = pat.search(t)
         if m:
             return m.group(0).strip()
     return ""

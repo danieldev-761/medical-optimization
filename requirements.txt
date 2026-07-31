@@ -10,3 +10,4 @@ transformers>=4.40
 sentencepiece>=0.2
 sacremoses>=0.1
 faker>=18
+redis>=5.0.0

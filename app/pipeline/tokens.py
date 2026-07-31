@@ -23,4 +23,6 @@ def count_tokens_batch(texts: list[str]) -> list[int]:
     """Tokens de una lista de textos en una sola llamada al encoder."""
     if not texts:
         return []
-    return [len(t) for t in get_encoder().encode_batch(texts)]
+    enc = get_encoder()
+    return [len(t) for t in enc.encode_batch(texts)]
+

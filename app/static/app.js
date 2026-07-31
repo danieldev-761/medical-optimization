@@ -112,11 +112,15 @@ function renderProyeccion(d) {
 
 function renderTimings(timings) {
   const el = document.getElementById("timings");
+  const badge = document.getElementById("total-time-badge");
   if (!timings || !Object.keys(timings).length) {
     el.innerHTML = '<span class="muted">Sin datos de timing.</span>';
+    if (badge) badge.textContent = "";
     return;
   }
   const total = Object.values(timings).reduce((s, v) => s + v, 0);
+  const totalFmt = total >= 60 ? (total / 60).toFixed(2) + " min (" + total.toFixed(1) + " s)" : total.toFixed(2) + " s";
+  if (badge) badge.textContent = "⏱ Tiempo total de carga: " + totalFmt;
   el.innerHTML = Object.entries(timings)
     .map(([k, v]) => `<div class="timing"><span>${k}</span><b>${v.toFixed(3)}s</b></div>`)
     .join("") + `<div class="timing"><span>total</span><b>${total.toFixed(3)}s</b></div>`;
@@ -141,7 +145,8 @@ function applyToUI(d) {
   const timings = meta.tiempos_seg;
   if (timings) {
     const total = Object.values(timings).reduce((s, v) => s + v, 0);
-    setSeg("sl-time", "⏱ " + total.toFixed(1) + "s");
+    const timeStr = total >= 60 ? (total / 60).toFixed(1) + "m" : total.toFixed(1) + "s";
+    setSeg("sl-time", "⏱ duró " + timeStr);
   }
 
   document.getElementById("btn-download").hidden = false;

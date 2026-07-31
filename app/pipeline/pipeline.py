@@ -32,8 +32,9 @@ class PipelineResult:
 
 def _extract_fields(frame: pd.DataFrame) -> pd.DataFrame:
     """Extracción vectorizada de los 4 campos estructurados."""
-    fields = frame["mensaje_texto"].map(extract.extract_fields)
-    extracted = pd.DataFrame(fields.tolist(), index=frame.index)
+    texts = frame["mensaje_texto"].tolist()
+    extracted_dicts = [extract.extract_fields(t) for t in texts]
+    extracted = pd.DataFrame(extracted_dicts, index=frame.index)
     for col in ("accion", "especialidad", "fecha_solicitada", "preferencia_horario"):
         if col in frame.columns:
             frame[col] = frame[col].fillna("")
@@ -52,17 +53,27 @@ def _count_tokens_column(frame: pd.DataFrame, column: str, batch_size: int) -> p
     return frame
 
 
+from .cache import TranslationCache
+
+
 def _translate_with_cache(
     frame: pd.DataFrame, settings: Settings, translator, on_batch: Callable | None = None
-) -> tuple[pd.DataFrame, str]:
-    """Traduce mensaje_limpio (dedup global, caché) con ThreadPoolExecutor I/O."""
+) -> tuple[pd.DataFrame, dict[str, str]]:
+    """Traduce mensaje_limpio (dedup por oración semántica + caché Redis/memoria)."""
     cleaned = frame["mensaje_limpio"].fillna("").astype(str).tolist()
-    # Dedup global para no traducir equivalentes repetidos
     unique = list(dict.fromkeys(cleaned))
-    cache: dict[str, str] = {}
+
+    cache_manager = TranslationCache(settings)
+    cached_map = cache_manager.get_many(unique)
+
+    missing = [t for t in unique if t not in cached_map]
 
     def _run_pool(texts: list[str]) -> list[str]:
-        chunk = 100
+        if not texts:
+            return []
+        if translator.engine == "ctranslate2":
+            return translator.translate(texts).texts
+        chunk = 1000
         results: list[str] = [""] * len(texts)
         jobs = [(i, texts[i : i + chunk]) for i in range(0, len(texts), chunk)]
         total_jobs = len(jobs)
@@ -83,10 +94,14 @@ def _translate_with_cache(
                     on_batch(done_jobs, total_jobs)
         return results
 
-    translated_unique = _run_pool(unique)
-    cache = dict(zip(unique, translated_unique, strict=True))
-    frame["mensaje_ingles"] = [cache.get(t, t) for t in cleaned]
-    return frame, cache
+    if missing:
+        translated_missing = _run_pool(missing)
+        new_translations = dict(zip(missing, translated_missing, strict=True))
+        cache_manager.set_many(new_translations)
+        cached_map.update(new_translations)
+
+    frame["mensaje_ingles"] = [cached_map.get(t, t) for t in cleaned]
+    return frame, cached_map
 
 
 def run_pipeline(settings: Settings, progress: ProgressListener | None = None) -> PipelineResult:

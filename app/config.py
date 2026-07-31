@@ -1,5 +1,6 @@
 """Configuración central de la pipeline HU-015."""
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -67,6 +68,11 @@ class Settings:
     translate_engine: str = "auto"  # "ctranslate2" | "deep_translator" | "auto"
     model_dir: str = LOCAL_TRANSLATE_MODEL_DIR
     cache_enabled: bool = True
+    redis_enabled: bool = True
+    redis_host: str = field(default_factory=lambda: os.getenv("REDIS_HOST", "localhost"))
+    redis_port: int = field(default_factory=lambda: int(os.getenv("REDIS_PORT", "6379")))
+    redis_db: int = 0
+    redis_ttl_days: int = 30
     metrics_path: str | None = "out/metrics.json"
     max_workers_ingest: int = MAX_WORKERS_INGEST
     max_workers_translate: int = MAX_WORKERS_TRANSLATE

@@ -41,6 +41,8 @@ def clean_message(text: str) -> str:
         return ""
     text = text.replace("\n", " ").replace("\r", " ")
     text = re.sub(r"\s+", " ", text).strip()
+    # Tomar la primera oración donde reside la intención operacional de la cita médica
+    text = text.split(".")[0].strip()
     text = TRAIL_CUTTERS.split(text)[0]
     text = ACCESSORY_PHRASES.sub("", text)
     text = re.sub(r"[^\w\s.,:;¿?¡!áéíóúüñÁÉÍÓÚÜÑ/()-]", " ", text)
