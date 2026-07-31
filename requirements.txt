@@ -12,3 +12,5 @@ sacremoses>=0.1
 faker>=18
 redis>=5.0.0
 pytest>=8.0.0
+python-calamine>=0.2.0
+xlsxwriter>=3.2.0

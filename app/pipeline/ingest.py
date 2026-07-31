@@ -23,8 +23,11 @@ def _discover_inputs(input_path: Path) -> list[Path]:
 
 
 def _load_sheet(path: Path) -> pd.DataFrame:
-    """Carga una hoja .xlsx a DataFrame sin costo de celdas vacías residuales."""
-    return pd.read_excel(path, engine="openpyxl", dtype=str)
+    """Carga una hoja .xlsx a DataFrame usando calamine ultrarrápido."""
+    try:
+        return pd.read_excel(path, engine="calamine", dtype=str)
+    except Exception:  # noqa: BLE001
+        return pd.read_excel(path, engine="openpyxl", dtype=str)
 
 
 def read_excel_to_dataframes(files: list[Path], max_workers: int = 4) -> list[pd.DataFrame]:
