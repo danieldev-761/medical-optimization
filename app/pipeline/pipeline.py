@@ -44,12 +44,10 @@ def _extract_fields(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def _count_tokens_column(frame: pd.DataFrame, column: str, batch_size: int) -> pd.DataFrame:
-    """Tokeniza una columna por batches, insertando el conteo en la columna de tokens."""
+    """Tokeniza una columna directamente en C/Rust en una sola llamada masiva."""
     suffix = {"mensaje_texto": "original", "mensaje_limpio": "limpio", "mensaje_ingles": "ingles"}[column]
-    counts: list[int] = []
-    for batch in preprocess.iter_batches(frame, batch_size):
-        counts.extend(tokens.count_tokens_batch(batch[column].fillna("").astype(str).tolist()))
-    frame[f"tokens_{suffix}"] = counts
+    texts = frame[column].fillna("").astype(str).tolist()
+    frame[f"tokens_{suffix}"] = tokens.count_tokens_batch(texts)
     return frame
 
 

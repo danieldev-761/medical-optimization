@@ -21,6 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY models ./models
 COPY sample ./sample
+COPY tests ./tests
 COPY run.py .
 
 # Crear carpeta de salida

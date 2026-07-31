@@ -59,7 +59,7 @@ def _translate_ctranslate2(texts: list[str], model_dir: str) -> list[str]:
             try:
                 _CACHED_TOKENIZER = transformers.AutoTokenizer.from_pretrained(model_dir, use_fast=False, local_files_only=True)
             except Exception:
-                _CACHED_TOKENIZER = transformers.AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-es-en", use_fast=False, local_files_only=True)
+                _CACHED_TOKENIZER = transformers.AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-es-en", use_fast=False)
         except Exception as exc:  # noqa: BLE001
             raise TranslationError(f"No se pudo cargar el tokenizador de {model_dir}: {exc}") from exc
 

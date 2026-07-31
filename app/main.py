@@ -59,8 +59,8 @@ def analyze(
 
     settings = Settings(
         input_path=str(saved),
-        output_excel=str(OUT_DIR / "resultados.xlsx"),
-        output_json=str(OUT_DIR / "agregados.json"),
+        output_excel=str(OUT_DIR / f"resultados_{run_id}.xlsx"),
+        output_json=str(OUT_DIR / f"agregados_{run_id}.json"),
         optimize_tokens=optimize_tokens,
         batch_size=batch_size,
         translate_engine=engine,
@@ -103,8 +103,8 @@ def analyze_stream(
 
     settings = Settings(
         input_path=str(saved),
-        output_excel=str(OUT_DIR / "resultados.xlsx"),
-        output_json=str(OUT_DIR / "agregados.json"),
+        output_excel=str(OUT_DIR / f"resultados_{run_id}.xlsx"),
+        output_json=str(OUT_DIR / f"agregados_{run_id}.json"),
         optimize_tokens=optimize_tokens,
         batch_size=batch_size,
         translate_engine=engine,
