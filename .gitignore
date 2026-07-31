@@ -18,6 +18,9 @@ output/
 # modelos locales de traducción (grandes)
 models/
 
+# archivos temporales de Excel
+~$*
+
 .idea/
 .vscode/
 *.log
