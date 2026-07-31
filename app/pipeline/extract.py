@@ -58,8 +58,15 @@ ACCION_COMPILED: list[tuple[str, list[re.Pattern]]] = [
 CONFIRM_NEGATIONS = re.compile(r"\bno quiero confirmar\b|\bdesconfirmar\b", re.IGNORECASE)
 
 
+def _norm(text: str) -> str:
+    return normalize_ascii(text).lower()
+
+
 def extract_accion(text: str) -> str:
-    t = normalize_ascii(text).lower()
+    return _extract_accion(_norm(text))
+
+
+def _extract_accion(t: str) -> str:
     if CONFIRM_NEGATIONS.search(t):
         return ""
     for accion, patterns in ACCION_COMPILED:
@@ -105,7 +112,10 @@ ESPECIALIDADES_COMPILED: dict[str, list[re.Pattern]] = {
 
 
 def extract_especialidad(text: str) -> str:
-    t = normalize_ascii(text).lower()
+    return _extract_especialidad(_norm(text))
+
+
+def _extract_especialidad(t: str) -> str:
     for especialidad, patterns in ESPECIALIDADES_COMPILED.items():
         for pat in patterns:
             if pat.search(t):
@@ -136,7 +146,10 @@ FECHA_COMPILED = [re.compile(pat, re.IGNORECASE) for pat in FECHA_PATTERNS]
 
 
 def extract_fecha_solicitada(text: str) -> str:
-    t = normalize_ascii(text).lower()
+    return _extract_fecha_solicitada(_norm(text))
+
+
+def _extract_fecha_solicitada(t: str) -> str:
     for pat in FECHA_COMPILED:
         m = pat.search(t)
         if m:
@@ -168,7 +181,10 @@ HORARIO_COMPILED = [re.compile(pat, re.IGNORECASE) for pat in HORARIO_PATTERNS]
 
 
 def extract_preferencia_horario(text: str) -> str:
-    t = normalize_ascii(text).lower()
+    return _extract_preferencia_horario(_norm(text))
+
+
+def _extract_preferencia_horario(t: str) -> str:
     for pat in HORARIO_COMPILED:
         m = pat.search(t)
         if m:
@@ -176,11 +192,20 @@ def extract_preferencia_horario(text: str) -> str:
     return ""
 
 
-def extract_fields(text: str) -> dict:
-    """Extrae los 4 campos estructurados de un mensaje."""
-    return {
-        "accion": extract_accion(text),
-        "especialidad": extract_especialidad(text),
-        "fecha_solicitada": extract_fecha_solicitada(text),
-        "preferencia_horario": extract_preferencia_horario(text),
-    }
+def extract_fields(text: str, fields: list[str] | None = None) -> dict:
+    """Extrae los campos estructurados de un mensaje normalizando el texto una sola vez.
+
+    fields: subconjunto de ("accion", "especialidad", "fecha_solicitada",
+    "preferencia_horario"). None extrae los 4.
+    """
+    t = _norm(text)
+    result = {}
+    if fields is None or "accion" in fields:
+        result["accion"] = _extract_accion(t)
+    if fields is None or "especialidad" in fields:
+        result["especialidad"] = _extract_especialidad(t)
+    if fields is None or "fecha_solicitada" in fields:
+        result["fecha_solicitada"] = _extract_fecha_solicitada(t)
+    if fields is None or "preferencia_horario" in fields:
+        result["preferencia_horario"] = _extract_preferencia_horario(t)
+    return result

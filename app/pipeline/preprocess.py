@@ -53,19 +53,25 @@ def clean_message(text: str) -> str:
 
 
 def filter_usable(frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Descarta filas vacías/nulas/sin valor semántico. Devuelve (válidas, descartadas)."""
-    messages = frame["mensaje_texto"].fillna("").astype(str).str.strip()
-    usable = messages.map(lambda m: _has_semantic_value(m))
+    """Descarta filas vacías/nulas/sin valor semántico. Devuelve (válidas, descartadas).
+
+    Reutiliza mensaje_limpio si ya fue calculado; de lo contrario limpia al vuelo.
+    """
+    raw = frame["mensaje_texto"].fillna("").astype(str).str.strip()
+    if "mensaje_limpio" in frame.columns:
+        cleaned = frame["mensaje_limpio"].fillna("").astype(str)
+    else:
+        cleaned = raw.map(clean_message)
+    usable = [_has_semantic_value(m, c) for m, c in zip(raw.tolist(), cleaned.tolist())]
     valid = frame[usable].copy()
-    discarded = frame[~usable].copy()
+    discarded = frame[[not u for u in usable]].copy()
     return valid, discarded
 
 
-def _has_semantic_value(message: str) -> bool:
+def _has_semantic_value(message: str, cleaned: str) -> bool:
     """Un mensaje tiene valor si tras limpieza conserva términos de intención/datos."""
     if not message or len(message) < 3:
         return False
-    cleaned = clean_message(message)
     if not cleaned:
         return False
     if len(cleaned) < 3 and not any(c.isalpha() for c in cleaned):
@@ -76,7 +82,10 @@ def _has_semantic_value(message: str) -> bool:
 def deduplicate(frame: pd.DataFrame) -> pd.DataFrame:
     """Dedup por (paciente_id, mensaje normalizado): conserva la primera ocurrencia de cada paciente por texto limpio."""
     frame = frame.copy()
-    frame["_clean_key"] = frame["mensaje_texto"].fillna("").astype(str).map(clean_message)
+    if "mensaje_limpio" in frame.columns:
+        frame["_clean_key"] = frame["mensaje_limpio"].fillna("").astype(str)
+    else:
+        frame["_clean_key"] = frame["mensaje_texto"].fillna("").astype(str).map(clean_message)
     frame["_clean_key"] = frame["_clean_key"].map(normalize_ascii).str.lower()
     subset = ["paciente_id", "_clean_key"] if "paciente_id" in frame.columns else ["_clean_key"]
     frame = frame.drop_duplicates(subset=subset, keep="first")
@@ -88,26 +97,32 @@ def _clean_chunk(chunk_texts: list[str]) -> list[str]:
     return [clean_message(t) for t in chunk_texts]
 
 
-def preprocess(frame: pd.DataFrame, max_workers: int = 4) -> tuple[pd.DataFrame, dict]:
-    """Ejecuta la fase completa de preprocesamiento paralelizada.
-
-    Devuelve (DataFrame limpio y deduplicado, métricas de reducción de volumen).
-    """
-    n_before = len(frame)
-    texts = frame["mensaje_texto"].fillna("").astype(str).tolist()
+def clean_texts(texts: list[str], max_workers: int = 4) -> list[str]:
+    """Limpia una lista de textos en paralelo por CPU."""
     n = len(texts)
-
     if n > 100 and max_workers > 1:
         chunk_size = math.ceil(n / max_workers)
         chunks = [texts[i : i + chunk_size] for i in range(0, n, chunk_size)]
         with ProcessPoolExecutor(max_workers=max_workers) as pool:
             results_nested = list(pool.map(_clean_chunk, chunks))
-        cleaned = [item for sublist in results_nested for item in sublist]
-    else:
-        cleaned = _clean_chunk(texts)
+        return [item for sublist in results_nested for item in sublist]
+    return _clean_chunk(texts)
 
-    frame["mensaje_limpio"] = cleaned
+
+def preprocess(frame: pd.DataFrame, max_workers: int = 4, cleaned_texts: list[str] | None = None) -> tuple[pd.DataFrame, dict]:
+    """Ejecuta la fase de preprocesamiento: filtra, deduplica y fija mensaje_limpio.
+
+    cleaned_texts: si la limpieza ya fue calculada (p. ej. fusionada con la
+    extracción), se reutiliza para no ejecutar clean_message dos veces.
+    Devuelve (DataFrame limpio y deduplicado, métricas de reducción de volumen).
+    """
+    n_before = len(frame)
+    if cleaned_texts is None:
+        cleaned_texts = clean_texts(frame["mensaje_texto"].fillna("").astype(str).tolist(), max_workers)
+    frame["mensaje_limpio"] = cleaned_texts
     valid, discarded = filter_usable(frame)
+    if valid.empty:
+        raise ValueError("Todas las filas fueron descartadas en preprocesamiento")
     before_dedup = len(valid)
     valid = deduplicate(valid)
     n_after = len(valid)
