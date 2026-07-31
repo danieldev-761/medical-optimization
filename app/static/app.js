@@ -6,13 +6,7 @@ const fmtInt = (v) => (Number(v) || 0).toLocaleString("es-CO");
 const fmtPct = (v) => (Number(v) || 0).toFixed(2) + "%";
 
 const charts = {};
-let state = null;
-
-async function loadResults() {
-  const res = await fetch("/api/results");
-  if (!res.ok) throw new Error((await res.json()).detail || "sin resultados");
-  return res.json();
-}
+let busy = false;
 
 function baseOptions() {
   return {
@@ -54,13 +48,10 @@ function renderReal(d) {
   setWidth("s-ingles-bar", clampPct(a.ingles_pct, 100));
 
   const hasIngles = (t.tokens_ingles ?? 0) > 0;
-  const variants = hasIngles
-    ? ["original", "limpio", "ingles"]
-    : ["original", "limpio"];
+  const variants = hasIngles ? ["original", "limpio", "ingles"] : ["original", "limpio"];
 
-  barChart("ch-tokens", variants.map((v) => v.toUpperCase()), variants.map((v) => t["tokens_" + v]),
-    (ctx) => ctx.p0.chart.data.datasets[0].backgroundColor);
-  barChart("ch-cost", variants.map((v) => v.toUpperCase()), variants.map((v) => t["costo_" + v]), null, "$");
+  barChart("ch-tokens", variants.map((v) => v.toUpperCase()), variants.map((v) => t["tokens_" + v]));
+  barChart("ch-cost", variants.map((v) => v.toUpperCase()), variants.map((v) => t["costo_" + v]));
 
   const savingsLabels = [];
   const savingsVals = [];
@@ -76,7 +67,6 @@ function renderReal(d) {
 
 function renderProyeccion(d) {
   const proy = d.proyeccion || {};
-  const meta = proy._meta || {};
   const hasIngles = !!proy.ingles;
   const variants = hasIngles ? ["original", "limpio", "ingles"] : ["original", "limpio"];
   const periods = ["diario", "mensual", "trimestral", "anual"];
@@ -84,8 +74,7 @@ function renderProyeccion(d) {
   const cards = document.getElementById("proj-cards");
   cards.innerHTML = "";
   periods.forEach((p) => {
-    const v = variants[hasIngles ? 1 : 0];
-    const data = proy[v]?.[p] || { costo: 0 };
+    const data = proy[variants[0]]?.[p] || { costo: 0 };
     const art = document.createElement("article");
     art.className = "card proj-card";
     art.innerHTML = `
@@ -124,7 +113,7 @@ function renderProyeccion(d) {
 function renderTimings(timings) {
   const el = document.getElementById("timings");
   if (!timings || !Object.keys(timings).length) {
-    el.innerHTML = '<span class="muted">Disponible al procesar vía /api/analyze.</span>';
+    el.innerHTML = '<span class="muted">Sin datos de timing.</span>';
     return;
   }
   const total = Object.values(timings).reduce((s, v) => s + v, 0);
@@ -134,27 +123,22 @@ function renderTimings(timings) {
 }
 
 function applyToUI(d) {
-  const engine = d._meta?.motor_traduccion || d._meta?.engine;
+  const engine = d._meta?.motor_traduccion;
   const badge = document.getElementById("engine-badge");
+  badge.hidden = false;
   badge.textContent = "motor: " + (engine || "—");
   if (engine === "deep_translator") { badge.style.color = "var(--warn)"; }
   else if (engine === "ctranslate2") { badge.style.color = "var(--accent)"; }
   else { badge.style.color = "var(--muted)"; }
 
+  document.getElementById("btn-download").hidden = false;
+
   const hasIngles = (d.totales?.tokens_ingles ?? 0) > 0;
-  const inglCard = document.querySelector(".variant.ingles");
-  inglCard.style.opacity = hasIngles ? "1" : "0.45";
+  document.querySelector(".variant.ingles").style.opacity = hasIngles ? "1" : "0.45";
   renderReal(d);
   renderProyeccion(d);
-}
-
-async function init() {
-  try {
-    state = await loadResults();
-    applyToUI(state);
-  } catch (e) {
-    document.querySelector(".run-status").textContent = "ⓘ " + e.message;
-  }
+  document.getElementById("analysis").hidden = false;
+  document.getElementById("analysis").scrollIntoView({ behavior: "smooth" });
 }
 
 /* --- charts helpers --- */
@@ -162,23 +146,22 @@ function setText(id, val) { const el = document.getElementById(id); if (el) el.t
 function setWidth(id, val) { const el = document.getElementById(id); if (el) el.style.width = val + "%"; }
 function clampPct(v, max) { return Math.max(0, Math.min(Number(v) || 0, max)); }
 
-function makeDataset(vals, color, opts = {}) {
-  return Object.assign({ label: "", data: vals, backgroundColor: color, borderRadius: 6 }, opts);
-}
 function canvas(id, config) {
-  const canvas = document.getElementById(id);
+  const el = document.getElementById(id);
+  if (!el) return;
   if (charts[id]) charts[id].destroy();
-  charts[id] = new Chart(canvas.getContext("2d"), config);
+  charts[id] = new Chart(el.getContext("2d"), config);
 }
-function barChart(id, labels, vals, colorFn, prefix = "") {
+function barChart(id, labels, vals) {
   const colors = ["#fbbf24", "#5eead4", "#818cf8"];
-  const ds = makeDataset(vals, vals.map((_, i) => colors[i]));
-  canvas(id, { type: "bar", data: { labels, datasets: [ds] }, options: baseOptions() });
+  canvas(id, { type: "bar", data: { labels, datasets: [makeDataset(vals, vals.map((_, i) => colors[i]))] }, options: baseOptions() });
+}
+function makeDataset(vals, color) {
+  return { label: "", data: vals, backgroundColor: color, borderRadius: 6 };
 }
 function horizChart(id, labels, vals) {
-  const ds = makeDataset(vals, ["#818cf8", "#5eead4"]);
   canvas(id, {
-    type: "bar", data: { labels, datasets: [ds] },
+    type: "bar", data: { labels, datasets: [makeDataset(vals, ["#818cf8", "#5eead4"])] },
     options: Object.assign(baseOptions(), { indexAxis: "y" }),
   });
 }
@@ -189,10 +172,10 @@ function doughnut(id, labels, vals) {
   });
 }
 function upsertChart(id, config) {
-  const canvasEl = document.getElementById(id);
-  if (!canvasEl) return;
+  const el = document.getElementById(id);
+  if (!el) return;
   if (charts[id]) charts[id].destroy();
-  charts[id] = new Chart(canvasEl.getContext("2d"), config);
+  charts[id] = new Chart(el.getContext("2d"), config);
 }
 
 /* --- tabs --- */
@@ -205,11 +188,15 @@ document.querySelectorAll(".tab").forEach((btn) => {
   });
 });
 
-/* --- upload --- */
+/* --- upload + progreso en vivo --- */
 const dz = document.getElementById("dropzone");
 const fileInput = document.getElementById("file-input");
 const runBtn = document.getElementById("btn-run");
 const statusEl = document.getElementById("run-status");
+const progressWrap = document.getElementById("progress-wrap");
+const progressFill = document.getElementById("progress-fill");
+const progressLabel = document.getElementById("progress-label");
+const progressPct = document.getElementById("progress-pct");
 
 dz.addEventListener("click", () => fileInput.click());
 dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("drag"); });
@@ -221,41 +208,70 @@ dz.addEventListener("drop", (e) => {
 fileInput.addEventListener("change", () => { if (fileInput.files.length) setFile(fileInput.files[0]); });
 
 function setFile(file) {
+  if (busy) return;
   runBtn.disabled = false;
   statusEl.textContent = "archivo: " + file.name;
   statusEl.className = "run-status";
   runBtn.onclick = () => runPipeline(file);
 }
 
+function setProgress(label, pct) {
+  progressWrap.hidden = false;
+  progressLabel.textContent = label;
+  progressPct.textContent = Math.round(pct) + "%";
+  progressFill.style.width = Math.min(100, Math.max(0, pct)) + "%";
+}
+
 async function runPipeline(file) {
+  if (busy) return;
+  busy = true;
   runBtn.disabled = true;
-  statusEl.textContent = "procesando… (puede tardar)";
+  document.getElementById("analysis").hidden = true;
+  statusEl.textContent = "procesando…";
   statusEl.className = "run-status busy";
+  setProgress("iniciando…", 0);
+
   const fd = new FormData();
   fd.append("file", file);
   const qs = new URLSearchParams({
     optimize_tokens: document.getElementById("opt-tokens").checked,
     engine: document.getElementById("opt-engine").value,
   });
+
   try {
-    const res = await fetch("/api/analyze?" + qs, { method: "POST", body: fd });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail);
-    state = data;
-    applyToUI(state);
-    statusEl.textContent = "✓ listo · " + file.name;
-    statusEl.className = "run-status ok";
+    const res = await fetch("/api/analyze/stream?" + qs, { method: "POST", body: fd });
+    if (!res.ok || !res.body) throw new Error("No se pudo iniciar el procesamiento");
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
+
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf("\n\n")) !== -1) {
+        const raw = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        for (const line of raw.split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          const evt = JSON.parse(line.slice(6));
+          if (evt.type === "stage") setProgress(evt.etapa.replace(/_/g, " "), evt.progreso);
+          else if (evt.type === "done") {
+            applyToUI(evt.data);
+            statusEl.textContent = "✓ análisis listo · " + file.name;
+            statusEl.className = "run-status ok";
+            progressWrap.hidden = true;
+          } else if (evt.type === "error") throw new Error(evt.detail);
+        }
+      }
+    }
   } catch (e) {
     statusEl.textContent = "✗ " + e.message;
     statusEl.className = "run-status err";
+    progressWrap.hidden = true;
   } finally {
+    busy = false;
     runBtn.disabled = false;
   }
 }
-
-document.getElementById("btn-reload").addEventListener("click", async () => {
-  try { state = await loadResults(); applyToUI(state); }
-  catch (e) { statusEl.textContent = "ⓘ " + e.message; statusEl.className = "run-status"; }
-});
-
-init();

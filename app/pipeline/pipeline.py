@@ -2,6 +2,7 @@
 
 import json
 import logging
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +13,7 @@ from ..config import Settings
 from . import extract, ingest, preprocess, report, tokens
 from .cost import cost_for
 from .metrics import Metrics, stage_timer
+from .progress import ProgressListener, ProgressReporter
 from .translate import build_translator
 
 log = logging.getLogger(__name__)
@@ -50,7 +52,9 @@ def _count_tokens_column(frame: pd.DataFrame, column: str, batch_size: int) -> p
     return frame
 
 
-def _translate_with_cache(frame: pd.DataFrame, settings: Settings, translator) -> tuple[pd.DataFrame, str]:
+def _translate_with_cache(
+    frame: pd.DataFrame, settings: Settings, translator, on_batch: Callable | None = None
+) -> tuple[pd.DataFrame, str]:
     """Traduce mensaje_limpio (dedup global, caché) con ThreadPoolExecutor I/O."""
     cleaned = frame["mensaje_limpio"].fillna("").astype(str).tolist()
     # Dedup global para no traducir equivalentes repetidos
@@ -61,6 +65,8 @@ def _translate_with_cache(frame: pd.DataFrame, settings: Settings, translator) -
         chunk = 100
         results: list[str] = [""] * len(texts)
         jobs = [(i, texts[i : i + chunk]) for i in range(0, len(texts), chunk)]
+        total_jobs = len(jobs)
+        done_jobs = 0
         with ThreadPoolExecutor(max_workers=settings.max_workers_translate) as pool:
             futures = {
                 pool.submit(translator.translate, batch_texts): (idx, batch_texts)
@@ -72,6 +78,9 @@ def _translate_with_cache(frame: pd.DataFrame, settings: Settings, translator) -
                 idx, batch_texts = futures[future]
                 res = future.result()
                 results[idx : idx + len(batch_texts)] = res.texts
+                done_jobs += 1
+                if on_batch:
+                    on_batch(done_jobs, total_jobs)
         return results
 
     translated_unique = _run_pool(unique)
@@ -80,13 +89,17 @@ def _translate_with_cache(frame: pd.DataFrame, settings: Settings, translator) -
     return frame, cache
 
 
-def run_pipeline(settings: Settings) -> PipelineResult:
+def run_pipeline(settings: Settings, progress: ProgressListener | None = None) -> PipelineResult:
     """Ejecuta la pipeline completa y devuelve los artefactos."""
     metrics = Metrics()
+    reporter = ProgressReporter(progress, settings.optimize_tokens)
 
+    reporter.stage("ingesta")
     with stage_timer(metrics, "ingesta"):
         raw = ingest.ingest(settings)
+    reporter.end("ingesta")
 
+    reporter.stage("validacion")
     with stage_timer(metrics, "validacion"):
         from .validate import parseable_messages, validate_columns
 
@@ -94,40 +107,64 @@ def run_pipeline(settings: Settings) -> PipelineResult:
         raw = parseable_messages(raw)
         if raw.empty:
             raise ValueError("No hay filas procesables tras la validación")
+    reporter.end("validacion")
 
+    reporter.stage("csv_intermedio")
     with stage_timer(metrics, "csv_intermedio"):
         ingest.to_csv_intermediate(raw, Path(settings.output_csv))
+    reporter.end("csv_intermedio")
 
+    reporter.stage("preprocesamiento")
     with stage_timer(metrics, "preprocesamiento"):
         valid, preprocess_stats = preprocess.preprocess(raw)
         if valid.empty:
             raise ValueError("Todas las filas fueron descartadas en preprocesamiento")
+    reporter.end("preprocesamiento")
 
+    reporter.stage("extraccion")
     with stage_timer(metrics, "extraccion"):
         valid = _extract_fields(valid)
+    reporter.end("extraccion")
 
+    reporter.stage("tokens_original")
     with stage_timer(metrics, "tokens_original"):
         valid = _count_tokens_column(valid, "mensaje_texto", settings.batch_size)
+    reporter.end("tokens_original")
+
+    reporter.stage("tokens_limpio")
     with stage_timer(metrics, "tokens_limpio"):
         valid = _count_tokens_column(valid, "mensaje_limpio", settings.batch_size)
+    reporter.end("tokens_limpio")
 
     translate_engine = "none"
     if settings.optimize_tokens:
         translator = build_translator(settings.translate_engine, settings.model_dir)
+        reporter.stage("traduccion")
         with stage_timer(metrics, "traduccion"):
-            valid, _cache = _translate_with_cache(valid, settings, translator)
+            valid, _cache = _translate_with_cache(
+                valid,
+                settings,
+                translator,
+                on_batch=lambda done, total: reporter.sub(done / total if total else 1.0),
+            )
             translate_engine = translator.engine
+        reporter.end("traduccion")
+        reporter.stage("tokens_ingles")
         with stage_timer(metrics, "tokens_ingles"):
             valid = _count_tokens_column(valid, "mensaje_ingles", settings.batch_size)
+        reporter.end("tokens_ingles")
     else:
         valid["tokens_ingles"] = pd.NA
         valid["mensaje_ingles"] = ""
 
+    reporter.stage("costeo")
     with stage_timer(metrics, "costeo"):
         valid["costo_estimado_original"] = valid["tokens_original"].map(cost_for)
         valid["costo_estimado_limpio"] = valid["tokens_limpio"].map(cost_for)
         valid["costo_estimado_ingles"] = valid["tokens_ingles"].map(cost_for)
+    reporter.end("costeo")
 
+    reporter.stage("reporte")
     with stage_timer(metrics, "reporte"):
         output = report.build_output_frame(valid)
         aggregates = report.compute_aggregates(valid)
@@ -141,6 +178,8 @@ def run_pipeline(settings: Settings) -> PipelineResult:
         }
         report.write_excel(output, settings.output_excel)
         _write_json(settings.output_json, aggregates)
+    reporter.end("reporte")
+    reporter.done()
 
     if settings.metrics_path:
         _write_json(settings.metrics_path, {"etapas_seg": metrics.to_dict()})

@@ -1,13 +1,15 @@
 """API FastAPI: sirve el dashboard y expone /api/analyze para procesar archivos."""
 
 import json
+import queue
 import shutil
 import tempfile
+import threading
 import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import Settings
@@ -74,6 +76,68 @@ def analyze(
     aggregates["_meta"]["archivo"] = file.filename
     aggregates["_meta"]["ejecutado_via"] = "api"
     return JSONResponse(aggregates)
+
+
+@app.post("/api/analyze/stream")
+def analyze_stream(
+    file: UploadFile = File(...),
+    optimize_tokens: bool = Query(True, description="optimizar_tokens"),
+    engine: str = Query("auto", pattern="^(ctranslate2|deep_translator|auto)$"),
+    batch_size: int = Query(500, ge=1),
+) -> StreamingResponse:
+    """Procesa un .xlsx subido y emite progreso en tiempo real vía SSE.
+
+    Eventos: data: {"type":"stage","etapa":..., "progreso": <0-100>}
+             data: {"type":"done","data":{...}}
+             data: {"type":"error","detail":"..."}
+    """
+    if not file.filename or not file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(400, "El archivo debe ser .xlsx")
+
+    run_id = uuid.uuid4().hex[:8]
+    tmp = Path(tempfile.gettempdir()) / f"hu015_{run_id}"
+    tmp.mkdir(parents=True, exist_ok=True)
+    saved = tmp / file.filename
+    with saved.open("wb") as fh:
+        shutil.copyfileobj(file.file, fh)
+
+    settings = Settings(
+        input_path=str(saved),
+        output_excel=str(OUT_DIR / "resultados.xlsx"),
+        output_json=str(OUT_DIR / "agregados.json"),
+        optimize_tokens=optimize_tokens,
+        batch_size=batch_size,
+        translate_engine=engine,
+    )
+
+    events: queue.Queue = queue.Queue()
+
+    def listener(stage: str, fraction: float) -> None:
+        events.put({"type": "stage", "etapa": stage, "progreso": round(fraction * 100, 1)})
+
+    def worker() -> None:
+        try:
+            result = run_pipeline(settings, progress=listener)
+            agg = result.aggregates
+            agg["_meta"]["archivo"] = file.filename
+            agg["_meta"]["ejecutado_via"] = "api"
+            events.put({"type": "done", "data": agg})
+        except Exception as exc:  # noqa: BLE001
+            events.put({"type": "error", "detail": str(exc)})
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+            events.put(None)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    def generator():
+        while True:
+            event = events.get()
+            if event is None:
+                break
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(generator(), media_type="text/event-stream")
 
 
 @app.get("/api/download")
