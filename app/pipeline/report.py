@@ -20,13 +20,10 @@ def build_output_frame(processed: pd.DataFrame) -> pd.DataFrame:
 
 
 def write_excel(frame: pd.DataFrame, path: str | Path) -> None:
-    """Escribe el Excel final con una sola hoja usando xlsxwriter ultrarrápido."""
+    """Escribe el Excel final con una sola hoja."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        frame.to_excel(path, index=False, sheet_name="Resultados", engine="xlsxwriter")
-    except Exception:  # noqa: BLE001
-        frame.to_excel(path, index=False, sheet_name="Resultados", engine="openpyxl")
+    frame.to_excel(path, index=False, sheet_name="Resultados")
 
 
 def compute_aggregates(processed: pd.DataFrame) -> dict:
