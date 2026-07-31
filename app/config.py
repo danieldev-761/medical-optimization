@@ -54,8 +54,6 @@ TRANSLATE_TIMEOUT = 30
 TRANSLATE_MAX_RETRIES = 2
 
 # Traducción
-CTRANSLATE2_MODEL = "en-es"  # ctranslate2 no traduce ES->EN; ver nota en translate.py
-CTRANSLATE2_OPUS = "opus-mt-es-en"
 LOCAL_TRANSLATE_MODEL_DIR = "models/opus-mt-es-en"
 
 

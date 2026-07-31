@@ -23,9 +23,6 @@
     <span class="seg" id="sl-save">saving: —</span>
     <span class="seg" id="sl-time">⏱ —</span>
   </div>
-  <div class="term-actions">
-    <a id="btn-download" class="btn primary" href="/api/download" hidden>⤓ export.xlsx</a>
-  </div>
 </header>
 
 <main class="wrap">
@@ -142,6 +139,11 @@
         <article class="card chart-card"><h2>Proyección de tokens por periodo</h2><canvas id="ch-proj-tokens"></canvas></article>
       </div>
     </div>
+  </section>
+
+  <section id="download-zone" class="download-zone">
+    <a id="btn-download" class="btn primary disabled" href="#" aria-disabled="true">⤓ export.xlsx</a>
+    <span id="download-status" class="muted">El botón se habilita cuando el Excel esté listo.</span>
   </section>
 </main>
 

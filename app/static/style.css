@@ -116,6 +116,28 @@ body {
 }
 .btn.primary:hover { filter: brightness(1.15); color: #fff; }
 .btn.primary:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
+.btn.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  filter: none;
+  color: #fff;
+  background: linear-gradient(135deg, #0f766e, #3730a3);
+  border-color: transparent;
+}
+
+.download-zone {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 26px;
+  padding: 18px 22px;
+  background: linear-gradient(180deg, var(--panel), rgba(16, 20, 27, 0.6));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.download-zone .btn { font-size: 13px; padding: 10px 20px; }
+.download-zone .muted { margin: 0; }
 
 .wrap { max-width: 1180px; margin: 0 auto; padding: 26px 28px 60px; }
 

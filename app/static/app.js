@@ -126,7 +126,24 @@ function renderTimings(timings) {
     .join("") + `<div class="timing"><span>total</span><b>${total.toFixed(3)}s</b></div>`;
 }
 
-function applyToUI(d) {
+function setDownloadState(enabled, href, statusText) {
+  const btn = document.getElementById("btn-download");
+  const status = document.getElementById("download-status");
+  if (btn) {
+    if (enabled && href) {
+      btn.href = href;
+      btn.classList.remove("disabled");
+      btn.removeAttribute("aria-disabled");
+    } else {
+      btn.removeAttribute("href");
+      btn.classList.add("disabled");
+      btn.setAttribute("aria-disabled", "true");
+    }
+  }
+  if (status && statusText) status.textContent = statusText;
+}
+
+function renderMetrics(d, { scroll = true } = {}) {
   const meta = d._meta || {};
   const engine = meta.motor_traduccion;
 
@@ -149,16 +166,36 @@ function applyToUI(d) {
     setSeg("sl-time", "⏱ duró " + timeStr);
   }
 
-  const btnDl = document.getElementById("btn-download");
-  btnDl.hidden = false;
-  btnDl.href = meta.run_id ? "/api/download?run_id=" + meta.run_id : "/api/download";
-
   document.querySelector(".variant.ingles").style.opacity = hasIngles ? "1" : "0.45";
   renderReal(d);
   renderProyeccion(d);
   document.getElementById("analysis").hidden = false;
-  document.getElementById("analysis").scrollIntoView({ behavior: "smooth" });
+  if (scroll) document.getElementById("analysis").scrollIntoView({ behavior: "smooth" });
 }
+
+function applyToUI(d, { scroll = true } = {}) {
+  renderMetrics(d, { scroll });
+  const meta = d._meta || {};
+  const excelReady = !!meta.excel_disponible;
+  const href = meta.run_id ? "/api/download?run_id=" + meta.run_id : "/api/download";
+  setDownloadState(
+    excelReady,
+    href,
+    excelReady ? "Excel listo para descargar." : "El Excel no está disponible aún; la descarga se habilita cuando esté listo."
+  );
+}
+
+async function loadLatestResults() {
+  try {
+    const res = await fetch("/api/results");
+    if (!res.ok) throw new Error("no results");
+    const d = await res.json();
+    applyToUI(d, { scroll: false });
+  } catch {
+    setDownloadState(false, null, "Aún no hay métricas. Ejecuta un análisis para habilitar la descarga.");
+  }
+}
+window.addEventListener("DOMContentLoaded", loadLatestResults);
 
 /* --- charts helpers --- */
 function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
@@ -287,8 +324,13 @@ async function runPipeline(file) {
             setProgress(evt.etapa.replace(/_/g, " "), evt.progreso);
             prompt.textContent = "analyze --stage " + evt.etapa + " " + Math.round(evt.progreso) + "%";
             prompt.className = "prompt-cmd run";
+          } else if (evt.type === "metrics") {
+            renderMetrics(evt.data, true);
+            setDownloadState(false, null, "Generando Excel… la descarga se habilita cuando esté listo.");
+            statusEl.textContent = "✓ análisis listo · generando Excel…";
+            statusEl.className = "run-status ok";
           } else if (evt.type === "done") {
-            applyToUI(evt.data);
+            applyToUI(evt.data, { scroll: false });
             statusEl.textContent = "✓ análisis listo · " + file.name;
             statusEl.className = "run-status ok";
             progressWrap.hidden = true;

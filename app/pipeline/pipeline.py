@@ -159,8 +159,17 @@ def _translate_with_cache(
     return frame, cached_map
 
 
-def run_pipeline(settings: Settings, progress: ProgressListener | None = None) -> PipelineResult:
-    """Ejecuta la pipeline completa y devuelve los artefactos."""
+def run_pipeline(
+    settings: Settings,
+    progress: ProgressListener | None = None,
+    on_metrics: Callable[[dict], None] | None = None,
+) -> PipelineResult:
+    """Ejecuta la pipeline completa y devuelve los artefactos.
+
+    on_metrics: callback invocado justo tras calcular los agregados y ANTES de
+    escribir el Excel, para que el cliente pueda mostrar las métricas en vivo con
+    la descarga aún bloqueada.
+    """
     metrics = Metrics()
     reporter = ProgressReporter(progress, settings.optimize_tokens)
 
@@ -240,6 +249,8 @@ def run_pipeline(settings: Settings, progress: ProgressListener | None = None) -
             "mensajes_por_dia_proyeccion": 15_000,
             "tiempos_seg": metrics.to_dict(),
         }
+        if on_metrics:
+            on_metrics(aggregates)
         report.write_excel(output, settings.output_excel)
         default_excel = Path(settings.output_excel).parent / "resultados.xlsx"
         if default_excel.resolve() != Path(settings.output_excel).resolve():

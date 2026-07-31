@@ -36,6 +36,7 @@ def latest_results() -> JSONResponse:
         raise HTTPException(404, "Aún no hay resultados. Ejecuta run.py o sube un archivo.")
     data = json.loads(path.read_text(encoding="utf-8"))
     data.setdefault("_meta", {})["ultima_ejecucion"] = path.stat().st_mtime
+    data["_meta"]["excel_disponible"] = (OUT_DIR / "resultados.xlsx").exists()
     return JSONResponse(data)
 
 
@@ -76,6 +77,7 @@ def analyze(
     aggregates["_meta"]["archivo"] = file.filename
     aggregates["_meta"]["ejecutado_via"] = "api"
     aggregates["_meta"]["run_id"] = run_id
+    aggregates["_meta"]["excel_disponible"] = True
     return JSONResponse(aggregates)
 
 
@@ -118,11 +120,21 @@ def analyze_stream(
 
     def worker() -> None:
         try:
-            result = run_pipeline(settings, progress=listener)
+            def on_metrics(agg: dict) -> None:
+                snapshot = json.loads(json.dumps(agg))
+                snapshot["_meta"]["archivo"] = file.filename
+                snapshot["_meta"]["ejecutado_via"] = "api"
+                snapshot["_meta"]["run_id"] = run_id
+                snapshot["_meta"]["excel_disponible"] = False
+                events.put({"type": "metrics", "data": snapshot})
+
+            result = run_pipeline(settings, progress=listener, on_metrics=on_metrics)
             agg = result.aggregates
             agg["_meta"]["archivo"] = file.filename
             agg["_meta"]["ejecutado_via"] = "api"
             agg["_meta"]["run_id"] = run_id
+            agg["_meta"]["excel_disponible"] = True
+            agg["_meta"]["tiempos_seg"] = result.metrics.to_dict()
             events.put({"type": "done", "data": agg})
         except Exception as exc:  # noqa: BLE001
             events.put({"type": "error", "detail": str(exc)})
