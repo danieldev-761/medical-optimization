@@ -145,7 +145,7 @@ def run_pipeline(settings: Settings, progress: ProgressListener | None = None) -
 
     reporter.stage("preprocesamiento")
     with stage_timer(metrics, "preprocesamiento"):
-        valid, preprocess_stats = preprocess.preprocess(raw)
+        valid, preprocess_stats = preprocess.preprocess(raw, max_workers=settings.max_workers_cpu)
         if valid.empty:
             raise ValueError("Todas las filas fueron descartadas en preprocesamiento")
     reporter.end("preprocesamiento")

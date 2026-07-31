@@ -5,7 +5,9 @@ La limpieza es conservadora: elimina ruido/cortesías sin tocar intención,
 especialidad, fechas ni preferencias horarias.
 """
 
+import math
 import re
+from concurrent.futures import ProcessPoolExecutor
 from collections.abc import Iterable
 
 import pandas as pd
@@ -81,13 +83,30 @@ def deduplicate(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.drop(columns=["_clean_key"])
 
 
-def preprocess(frame: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    """Ejecuta la fase completa de preprocesamiento.
+def _clean_chunk(chunk_texts: list[str]) -> list[str]:
+    """Helper global serializable para ProcessPoolExecutor."""
+    return [clean_message(t) for t in chunk_texts]
+
+
+def preprocess(frame: pd.DataFrame, max_workers: int = 4) -> tuple[pd.DataFrame, dict]:
+    """Ejecuta la fase completa de preprocesamiento paralelizada.
 
     Devuelve (DataFrame limpio y deduplicado, métricas de reducción de volumen).
     """
     n_before = len(frame)
-    frame["mensaje_limpio"] = frame["mensaje_texto"].fillna("").astype(str).map(clean_message)
+    texts = frame["mensaje_texto"].fillna("").astype(str).tolist()
+    n = len(texts)
+
+    if n > 100 and max_workers > 1:
+        chunk_size = math.ceil(n / max_workers)
+        chunks = [texts[i : i + chunk_size] for i in range(0, n, chunk_size)]
+        with ProcessPoolExecutor(max_workers=max_workers) as pool:
+            results_nested = list(pool.map(_clean_chunk, chunks))
+        cleaned = [item for sublist in results_nested for item in sublist]
+    else:
+        cleaned = _clean_chunk(texts)
+
+    frame["mensaje_limpio"] = cleaned
     valid, discarded = filter_usable(frame)
     before_dedup = len(valid)
     valid = deduplicate(valid)
