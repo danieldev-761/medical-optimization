@@ -3,7 +3,8 @@
 import json
 import logging
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
+import math
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -30,10 +31,25 @@ class PipelineResult:
     translate_engine: str = "none"
 
 
-def _extract_fields(frame: pd.DataFrame) -> pd.DataFrame:
-    """Extracción vectorizada de los 4 campos estructurados."""
+def _extract_chunk(chunk_texts: list[str]) -> list[dict]:
+    """Helper global serializable para ProcessPoolExecutor."""
+    return [extract.extract_fields(t) for t in chunk_texts]
+
+
+def _extract_fields(frame: pd.DataFrame, max_workers: int = 4) -> pd.DataFrame:
+    """Extracción paralelizada por CPU de los 4 campos estructurados."""
     texts = frame["mensaje_texto"].tolist()
-    extracted_dicts = [extract.extract_fields(t) for t in texts]
+    n = len(texts)
+
+    if n > 100 and max_workers > 1:
+        chunk_size = math.ceil(n / max_workers)
+        chunks = [texts[i : i + chunk_size] for i in range(0, n, chunk_size)]
+        with ProcessPoolExecutor(max_workers=max_workers) as pool:
+            results_nested = list(pool.map(_extract_chunk, chunks))
+        extracted_dicts = [item for sublist in results_nested for item in sublist]
+    else:
+        extracted_dicts = _extract_chunk(texts)
+
     extracted = pd.DataFrame(extracted_dicts, index=frame.index)
     for col in ("accion", "especialidad", "fecha_solicitada", "preferencia_horario"):
         if col in frame.columns:
@@ -136,7 +152,7 @@ def run_pipeline(settings: Settings, progress: ProgressListener | None = None) -
 
     reporter.stage("extraccion")
     with stage_timer(metrics, "extraccion"):
-        valid = _extract_fields(valid)
+        valid = _extract_fields(valid, max_workers=settings.max_workers_cpu)
     reporter.end("extraccion")
 
     reporter.stage("tokens_original")

@@ -80,6 +80,7 @@ class Settings:
     metrics_path: str | None = "out/metrics.json"
     max_workers_ingest: int = MAX_WORKERS_INGEST
     max_workers_translate: int = MAX_WORKERS_TRANSLATE
+    max_workers_cpu: int = field(default_factory=lambda: os.cpu_count() or 4)
     translate_timeout: int = TRANSLATE_TIMEOUT
     translate_max_retries: int = TRANSLATE_MAX_RETRIES
     input_path_obj: Path = field(init=False)
