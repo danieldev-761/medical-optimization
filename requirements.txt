@@ -9,3 +9,4 @@ ctranslate2>=4.4
 transformers>=4.40
 sentencepiece>=0.2
 sacremoses>=0.1
+faker>=18

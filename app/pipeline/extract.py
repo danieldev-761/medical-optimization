@@ -28,11 +28,13 @@ ACCION_PATTERNS: list[tuple[str, list[str]]] = [
         [
             r"\breprogram(ar|acion|a|ado|arlo)?\b",
             r"\breagend(ar|amiento|a)?\b",
-            r"\bcambiar (la fecha|la cita|de fecha|el dia)\b",
+            r"\bcambiar (la fecha|la cita|de fecha|el dia|el horario)\b",
+            r"\bmodificar (la fecha|el horario|mi cita|la cita|mi turno)\b",
             r"\bmover (la cita|la fecha|mi cita)\b",
             r"\bposponer\b",
+            r"\bposterg(ar|arla|arlo|acion|amiento)\b",
             r"\baplazar\b",
-            r"\badelantar la cita\b",
+            r"\badelantar (mi turno|mi cita|el turno|la cita|mi consulta|la consulta|mi control)\b",
             r"\bagendar (para|otra vez|de nuevo|nuevamente)\b",
             r"\bfecha alternativa\b",
         ],
@@ -136,6 +138,8 @@ HORARIO_PATTERNS = [
     r"\b(por|en|para|durante)\s+(la\s+)?manana\b",
     r"\b(por|en|para|durante)\s+(la\s+)?tarde\b",
     r"\b(por|en|para|durante)\s+(la\s+)?noche\b",
+    r"\b(horario|turno|agenda) de la (manana|tarde|noche)\b",
+    r"\bprimeras horas del dia\b",
     r"\bprimera hora\b",
     r"\bmediodia\b",
     r"\bmedio dia\b",
@@ -144,6 +148,7 @@ HORARIO_PATTERNS = [
     r"\ben la manana\b",
     r"\ben la tarde\b",
     r"\bmanana temprano\b",
+    r"\bde la (manana|tarde|noche)\b",
     r"\bpor la mananita\b",
 ]
 

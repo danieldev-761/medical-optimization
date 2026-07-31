@@ -57,8 +57,13 @@ python -m uvicorn app.main:app --port 8000
 ### Datos de muestra
 
 ```bash
-python scripts/make_sample.py --n 400 --files 2
+pip install -r requirements.txt   # incluye faker
+python scripts/generate_citas.py  # genera citas_medicas_solicitudes.xlsx (10,000 filas)
+python run.py citas_medicas_solicitudes.xlsx
 ```
+
+El generador usa el formato `id_paciente` + `mensaje_texto`; la validación lo
+normaliza automáticamente al contrato interno (`paciente_id`).
 
 ## Arquitectura
 

@@ -18,6 +18,12 @@ class TestValidate:
         df = pd.DataFrame({"paciente_id": ["1"], "mensaje_texto": ["hola"]})
         validate.validate_columns(df)
 
+    def test_id_paciente_alias_normalized(self):
+        df = pd.DataFrame({"id_paciente": ["1"], "mensaje_texto": ["hola"]})
+        validate.validate_columns(df)
+        assert "paciente_id" in df.columns
+        assert "id_paciente" not in df.columns
+
 
 class TestPreprocess:
     def test_clean_removes_courtesies(self):
@@ -53,6 +59,16 @@ class TestExtract:
 
     def test_accion_reprogramar(self):
         assert extract.extract_accion("Quiero cambiar la fecha de mi cita") == "reprogramar"
+
+    def test_accion_reprogramar_vocabulario_formal(self):
+        assert extract.extract_accion("Solicito modificar la fecha de mi consulta") == "reprogramar"
+        assert extract.extract_accion("Deseo postergar mi atención") == "reprogramar"
+        assert extract.extract_accion("Necesito adelantar mi turno médico") == "reprogramar"
+
+    def test_horario_turno(self):
+        assert extract.extract_preferencia_horario("en el horario de la mañana") == "horario de la manana"
+        assert extract.extract_preferencia_horario("para el turno de la tarde") == "turno de la tarde"
+        assert extract.extract_preferencia_horario("en las primeras horas del día") == "primeras horas del dia"
 
     def test_especialidad(self):
         assert extract.extract_especialidad("cita con el cardiologo") == "cardiologia"
