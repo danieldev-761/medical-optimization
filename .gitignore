@@ -16,7 +16,6 @@ output/
 *.tmp.csv
 
 # modelos locales de traducción (grandes)
-models/
 
 # archivos temporales de Excel
 ~$*
