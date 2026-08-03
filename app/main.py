@@ -135,6 +135,9 @@ def analyze_stream(
             agg["_meta"]["run_id"] = run_id
             agg["_meta"]["excel_disponible"] = True
             agg["_meta"]["tiempos_seg"] = result.metrics.to_dict()
+            (OUT_DIR / "agregados.json").write_text(
+                json.dumps(agg, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
             events.put({"type": "done", "data": agg})
         except Exception as exc:  # noqa: BLE001
             events.put({"type": "error", "detail": str(exc)})

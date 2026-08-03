@@ -3,13 +3,28 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#070b12" />
 <title>Medical Opt · HU-015</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
 <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
+<div class="bg" aria-hidden="true">
+  <div class="bg-orb bg-orb-a"></div>
+  <div class="bg-orb bg-orb-b"></div>
+  <div class="bg-grid"></div>
+</div>
+
 <header class="termbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12h4l3 8 4-16 3 8h4" />
+      </svg>
+    </span>
+    <span class="brand-name">medical-opt</span>
+  </div>
   <div class="term-prompt">
     <span class="prompt-user">medical-opt</span>
     <span class="prompt-sep">~$</span>
@@ -27,13 +42,40 @@
 
 <main class="wrap">
   <section class="upload hero">
-    <h2>Procesar archivo</h2>
-    <p class="muted">Sube un <code>.xlsx</code> con las solicitudes de citas. El análisis solo se genera tras procesar tu archivo.</p>
-    <div id="dropzone" class="dropzone">
-      <div class="dz-icon">⤒</div>
+    <div class="hero-head">
+      <div>
+        <h2>Procesar archivo</h2>
+        <p class="muted">Sube un <code>.xlsx</code> con las solicitudes de citas. El análisis solo se genera tras procesar tu archivo.</p>
+      </div>
+      <div id="file-chip" class="file-chip" hidden>
+        <span class="file-chip-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <path d="M14 2v6h6" />
+          </svg>
+        </span>
+        <span class="file-chip-name" id="file-chip-name"></span>
+        <button id="file-chip-clear" class="file-chip-clear" type="button" aria-label="Quitar archivo">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-label="Elegir archivo .xlsx">
+      <div class="dz-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 16V4" />
+          <path d="m6 10 6-6 6 6" />
+          <path d="M4 20h16" />
+        </svg>
+      </div>
       <p><b>Arrastra tu archivo</b> o haz clic para elegir</p>
+      <span class="dz-hint">.xlsx · procesamiento 100% en memoria</span>
       <input id="file-input" type="file" accept=".xlsx" hidden />
     </div>
+
     <div class="opts">
       <label class="switch">
         <input id="opt-tokens" type="checkbox" checked />
@@ -48,29 +90,36 @@
         </select>
       </label>
       <button id="btn-run" class="btn primary" disabled>▶ Ejecutar análisis</button>
-      <span id="run-status" class="run-status"></span>
+      <span id="run-status" class="run-status" role="status"></span>
     </div>
+
+    <div id="stage-steps" class="stage-steps" hidden>
+      <ol id="stage-list" class="stage-list" aria-label="Etapas del pipeline"></ol>
+    </div>
+
     <div id="progress-wrap" class="progress-wrap" hidden>
       <div class="progress-head">
         <span id="progress-label" class="progress-label">iniciando…</span>
         <span id="progress-pct" class="progress-pct">0%</span>
       </div>
-      <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
+      <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div id="progress-fill" class="progress-fill"></div>
+      </div>
     </div>
   </section>
 
   <section id="analysis" hidden>
     <nav class="tabs" role="tablist">
-      <button class="tab is-active" data-view="real">Análisis real</button>
-      <button class="tab" data-view="hipotetico">Proyección hipotética</button>
+      <button class="tab is-active" role="tab" aria-selected="true" data-view="real">Análisis real</button>
+      <button class="tab" role="tab" aria-selected="false" data-view="hipotetico">Proyección hipotética</button>
     </nav>
 
-    <div id="view-real" class="view is-active">
+    <div id="view-real" class="view is-active" role="tabpanel">
       <div class="kpi-grid four">
-        <article class="card kpi"><span class="kpi-label">filas leídas</span><span id="k-filas" class="kpi-value">—</span></article>
-        <article class="card kpi"><span class="kpi-label">filas válidas</span><span id="k-validas" class="kpi-value">—</span></article>
-        <article class="card kpi"><span class="kpi-label">descartadas</span><span id="k-descartadas" class="kpi-value">—</span></article>
-        <article class="card kpi"><span class="kpi-label">duplicados</span><span id="k-dup" class="kpi-value">—</span></article>
+        <article class="card kpi kpi-a"><span class="kpi-label">filas leídas</span><span id="k-filas" class="kpi-value">—</span></article>
+        <article class="card kpi kpi-b"><span class="kpi-label">filas válidas</span><span id="k-validas" class="kpi-value">—</span></article>
+        <article class="card kpi kpi-c"><span class="kpi-label">descartadas</span><span id="k-descartadas" class="kpi-value">—</span></article>
+        <article class="card kpi kpi-d"><span class="kpi-label">duplicados</span><span id="k-dup" class="kpi-value">—</span></article>
       </div>
 
       <div class="kpi-grid three">
@@ -117,37 +166,47 @@
       </div>
 
       <div class="grid-2">
-        <article class="card chart-card"><h2>Tokens por variante</h2><canvas id="ch-tokens"></canvas></article>
-        <article class="card chart-card"><h2>Costo por variante (USD)</h2><canvas id="ch-cost"></canvas></article>
-        <article class="card chart-card"><h2>Ahorro vs. original</h2><canvas id="ch-savings"></canvas></article>
-        <article class="card chart-card"><h2>Distribución de acciones</h2><canvas id="ch-acciones"></canvas></article>
+        <article class="card chart-card"><h2>Tokens por variante</h2><div class="chart-box"><canvas id="ch-tokens"></canvas></div></article>
+        <article class="card chart-card"><h2>Costo por variante (USD)</h2><div class="chart-box"><canvas id="ch-cost"></canvas></div></article>
+        <article class="card chart-card"><h2>Ahorro vs. original</h2><div class="chart-box"><canvas id="ch-savings"></canvas></div></article>
+        <article class="card chart-card"><h2>Distribución de acciones</h2><div class="chart-box"><canvas id="ch-acciones"></canvas></div></article>
+        <article class="card chart-card span-2"><h2>Especialidades más solicitadas</h2><div class="chart-box chart-box-wide"><canvas id="ch-especialidades"></canvas></div></article>
       </div>
 
       <article class="card">
-        <h2>Etapas · profiling (s) <span id="total-time-badge" style="float:right; color:var(--accent); font-family:var(--mono);"></span></h2>
+        <h2>Etapas · profiling (s) <span id="total-time-badge" class="total-time"></span></h2>
         <div id="timings" class="timings"></div>
       </article>
     </div>
 
-    <div id="view-hipotetico" class="view">
+    <div id="view-hipotetico" class="view" role="tabpanel">
       <div class="note card">
         Proyección sobre <b>15,000 mensajes/día</b> usando el promedio real de tokens por mensaje de cada variante, a tarifa <b>$2.50 / 1M</b> tokens.
       </div>
       <div class="kpi-grid four" id="proj-cards"></div>
       <div class="grid-2">
-        <article class="card chart-card"><h2>Proyección de costo por periodo</h2><canvas id="ch-proj"></canvas></article>
-        <article class="card chart-card"><h2>Proyección de tokens por periodo</h2><canvas id="ch-proj-tokens"></canvas></article>
+        <article class="card chart-card"><h2>Proyección de costo por periodo</h2><div class="chart-box"><canvas id="ch-proj"></canvas></div></article>
+        <article class="card chart-card"><h2>Proyección de tokens por periodo</h2><div class="chart-box"><canvas id="ch-proj-tokens"></canvas></div></article>
       </div>
     </div>
   </section>
 
   <section id="download-zone" class="download-zone">
-    <a id="btn-download" class="btn primary disabled" href="#" aria-disabled="true">⤓ export.xlsx</a>
+    <a id="btn-download" class="btn primary disabled" href="#" aria-disabled="true">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 4v12" />
+        <path d="m6 10 6 6 6-6" />
+        <path d="M4 20h16" />
+      </svg>
+      export.xlsx
+    </a>
     <span id="download-status" class="muted">El botón se habilita cuando el Excel esté listo.</span>
   </section>
 </main>
 
-<footer class="foot">Medical Opt · pipeline por etapas · CSV intermedio · concurrencia I/O · caché por texto</footer>
+<footer class="foot">Medical Opt · pipeline por etapas · procesamiento en memoria · concurrencia I/O · caché por texto</footer>
+
+<div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
 
 <script src="/static/app.js" defer></script>
 </body>
